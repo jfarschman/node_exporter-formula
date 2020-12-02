@@ -1,0 +1,31 @@
+# vim: ft=jinja
+# This file handles the merging of pillar data with the data from defaults
+
+{# Start with  defaults from defaults.yml #}
+{% import_yaml 'node_exporter/defaults.yml' as default_settings %}
+
+{#
+Setup variable using grains['os_family'] based logic, only add key:values here
+that differ from whats in defaults.yml
+#}
+{% set os_family_map = salt['grains.filter_by']({
+        'Debian': {},
+        'Suse': {},
+        'Arch': {},
+        'RedHat': {},
+  }
+  , grain="os_family"
+  , merge=salt['pillar.get']('node_exporter:lookup'))
+%}
+
+{# Merge the flavor_map to the default settings #}
+{% do default_settings.node_exporter.update(os_family_map) %}
+
+{# Merge in template:lookup pillar #}
+{% set node_exporter = salt['pillar.get'](
+        'node_exporter',
+        default=default_settings.node_exporter,
+        merge=True
+    )
+%}
+{% do node_exporter.update({'version_path': node_exporter.install_dir ~ "/node_exporter-" ~ node_exporter.version}) %}
